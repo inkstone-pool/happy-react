@@ -1,4 +1,4 @@
-import {render}  from "./React"
+import render  from "./wookloop"
 
 const ReactDom={
   createRoot(container:Element){

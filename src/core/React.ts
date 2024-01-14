@@ -1,22 +1,5 @@
-function render(el: any, container: Element) {
-  console.log(el)
-  const node =
-    el.type == 'TEXT_ELEMENT'
-      ? document.createTextNode(el.nodeValue)
-      : document.createElement(el.type)
-  Object.entries(el.props || ({} as object)).forEach(([key, value]) => {
-    if (key !== 'children') {
-      node[key] = value
-    }
-  })
-  if (el.props.children) {
-    el.props.children.forEach((child: any) => {
-      render(child, node)
-    })
-  }
-  container.append(node)
-}
-function creatElement(
+
+function createElement(
   type: string,
   props: Record<string, any>,
   ...children: any[]
@@ -40,4 +23,4 @@ function ceateTextNode(text: string) {
     children: [],
   }
 }
-export { render, creatElement, ceateTextNode }
+export {  createElement, ceateTextNode }
