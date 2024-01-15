@@ -1,4 +1,3 @@
-
 function createElement(
   type: string,
   props: Record<string, any>,
@@ -9,7 +8,8 @@ function createElement(
     props: {
       ...props,
       children: children.map((child) => {
-        return typeof child == 'string' ? ceateTextNode(child) : child
+        const isTextNode = typeof child == 'string' || typeof child == 'number'
+        return isTextNode ? ceateTextNode('') : child
       }),
     },
   }
@@ -23,4 +23,4 @@ function ceateTextNode(text: string) {
     children: [],
   }
 }
-export {  createElement, ceateTextNode }
+export { createElement, ceateTextNode }
