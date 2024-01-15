@@ -64,16 +64,25 @@ function reconcileChildren(workInProgress: any, children: any[]) {
     preChild = newFiber
   })
 }
-function performanceFiber(fiber: any) {
-  let isFuncitonCompoent = typeof fiber.type == 'function'
-  const newChildren = isFuncitonCompoent
-    ? [fiber.type(fiber.props)]
-    : fiber.props.children
-  if (!fiber.dom && !isFuncitonCompoent) {
+function updateFunctionComponent(fiber: any) {
+  const newChildren = [fiber.type(fiber.props)]
+  reconcileChildren(fiber, newChildren)
+}
+function updateHostComponent(fiber: any) {
+  const newChildren = fiber.props.children
+  if (!fiber.dom) {
     const dom = createDom(fiber)
     updateProps(dom, fiber.props)
   }
   reconcileChildren(fiber, newChildren)
+}
+function performanceFiber(fiber: any) {
+  let isFuncitonCompoent = typeof fiber.type == 'function'
+  if (isFuncitonCompoent) {
+    updateFunctionComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
+  }
   if (fiber.child) {
     return fiber.child
   }

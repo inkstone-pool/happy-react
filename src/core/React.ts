@@ -9,7 +9,7 @@ function createElement(
       ...props,
       children: children.map((child) => {
         const isTextNode = typeof child == 'string' || typeof child == 'number'
-        return isTextNode ? ceateTextNode('') : child
+        return isTextNode ? ceateTextNode(child as string) : child
       }),
     },
   }
