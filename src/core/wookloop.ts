@@ -1,20 +1,22 @@
-let nextUnitOffiber: any = null
-let root: any = null
+let nextUnitOfFiber: any = null
+let workInProgress: any = null
+let currentRoot: any = null
 function wookloop(deadline: IdleDeadline) {
   let shouldYeild = false
-  while (!shouldYeild && nextUnitOffiber) {
-    nextUnitOffiber = performanceFiber(nextUnitOffiber)
+  while (!shouldYeild && nextUnitOfFiber) {
+    nextUnitOfFiber = performanceFiber(nextUnitOfFiber)
 
     shouldYeild = deadline.timeRemaining() < 1
   }
-  if (!nextUnitOffiber && root) {
+  if (!nextUnitOfFiber && workInProgress) {
     commitRoot()
   }
   requestIdleCallback(wookloop)
 }
 function commitRoot() {
-  commitWork(root.child)
-  root = null
+  commitWork(workInProgress.child)
+  currentRoot = workInProgress
+  workInProgress = null
 }
 function commitWork(fiber: any) {
   if (!fiber) return
@@ -23,7 +25,11 @@ function commitWork(fiber: any) {
     parentFiber = parentFiber.parent
   }
   if (fiber.dom) {
-    parentFiber.dom.append(fiber.dom)
+    if (fiber.effectTag == 'update') {
+      updateProps(fiber.dom, fiber.props, fiber.alternat?.props)
+    } else if (fiber.effectTag == 'placement') {
+      parentFiber.dom.append(fiber.dom)
+    }
   }
   commitWork(fiber.child)
   commitWork(fiber.sibling)
@@ -34,35 +40,69 @@ function createDom(fiberNode: any) {
       ? document.createTextNode(fiberNode.props.nodeValue)
       : document.createElement(fiberNode.type))
 }
-function updateProps(dom: Element, props: any) {
-  Object.entries((props || {}) as Record<string, string>).forEach(
+function updateProps(dom: Element, nextProps: any, prevProps: any = {}) {
+  Object.entries(prevProps).forEach(([key]) => {
+    if (key !== 'children') {
+      if (!(key in nextProps)) {
+        dom.removeAttribute(key)
+      }
+    }
+  })
+
+  Object.entries((nextProps || {}) as Record<string, any>).forEach(
     ([key, value]) => {
       if (key !== 'children') {
-        //@ts-ignores
-        dom[key] = value
+        if (key.startsWith('on')) {
+          const enevtType = key.slice(2).toLocaleLowerCase()
+          dom.removeEventListener(enevtType, prevProps[key])
+          dom.addEventListener(enevtType, value)
+        } else {
+          //@ts-ignores
+          dom[key] = value
+        }
       }
     }
   )
 }
-function reconcileChildren(workInProgress: any, children: any[]) {
+function reconcileChildren(fiber: any, children: any[]) {
   let newChildren = Array.isArray(children) ? children : []
-  let preChild: any = null
-  newChildren.forEach((currentChild: any, index: number) => {
-    const newFiber = {
-      type: currentChild.type,
-      props: currentChild.props,
-      parent: workInProgress,
-      sibling: null,
-      child: null,
-      dom: null,
+  let oldFiber = fiber.alternat?.child
+
+  newChildren.reduce((prevChild: any, currentChild: any, index: number) => {
+    let newFiber = null
+    const isSameType = oldFiber && oldFiber.type == currentChild.type
+    if (isSameType) {
+      newFiber = {
+        type: currentChild.type,
+        props: currentChild.props,
+        parent: fiber,
+        sibling: null,
+        child: null,
+        effectTag: 'update',
+        dom: oldFiber.dom,
+        alternat: oldFiber,
+      }
+    } else {
+      newFiber = {
+        type: currentChild.type,
+        props: currentChild.props,
+        parent: fiber,
+        sibling: null,
+        child: null,
+        dom: null,
+        effectTag: 'placement',
+      }
+    }
+    if (oldFiber?.sibling) {
+      oldFiber = oldFiber.sibling
     }
     if (index == 0) {
-      workInProgress.child = newFiber
+      fiber.child = newFiber
     } else {
-      preChild.sibling = newFiber
+      prevChild.sibling = newFiber
     }
-    preChild = newFiber
-  })
+    return newFiber
+  }, null)
 }
 function updateFunctionComponent(fiber: any) {
   const newChildren = [fiber.type(fiber.props)]
@@ -93,13 +133,21 @@ function performanceFiber(fiber: any) {
   }
 }
 function render(vdom: any, container: Element) {
-  root = nextUnitOffiber = {
+  workInProgress = {
     dom: container,
     props: {
       children: [vdom],
     },
-    child: null,
   }
+  nextUnitOfFiber = workInProgress
+}
+export function update() {
+  workInProgress = {
+    dom: currentRoot.dom,
+    props: currentRoot.props,
+    alternat: currentRoot,
+  }
+  nextUnitOfFiber = workInProgress
 }
 requestIdleCallback(wookloop)
 export default render

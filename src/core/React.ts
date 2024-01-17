@@ -23,4 +23,4 @@ function ceateTextNode(text: string) {
     children: [],
   }
 }
-export { createElement, ceateTextNode }
+export default { createElement, ceateTextNode }
