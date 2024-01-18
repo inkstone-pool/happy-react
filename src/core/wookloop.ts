@@ -1,11 +1,16 @@
 let nextUnitOfFiber: any = null
 let workInProgress: any = null
-let currentRoot: any = null
+//嵌套函数组件的下一个组件
+let workInProgressNextSiblingFiber: any = null
+let deletions: any[] = []
+let workInProgressFuncFiber: any = null
 function wookloop(deadline: IdleDeadline) {
   let shouldYeild = false
   while (!shouldYeild && nextUnitOfFiber) {
     nextUnitOfFiber = performanceFiber(nextUnitOfFiber)
-
+    if (workInProgressNextSiblingFiber?.type === nextUnitOfFiber?.type) {
+      nextUnitOfFiber = null
+    }
     shouldYeild = deadline.timeRemaining() < 1
   }
   if (!nextUnitOfFiber && workInProgress) {
@@ -14,25 +19,50 @@ function wookloop(deadline: IdleDeadline) {
   requestIdleCallback(wookloop)
 }
 function commitRoot() {
+  deletions.forEach((fiber) => {
+    commitDeletion(fiber)
+  })
+  deletions = []
   commitWork(workInProgress.child)
-  currentRoot = workInProgress
+
   workInProgress = null
 }
 function commitWork(fiber: any) {
   if (!fiber) return
-  let parentFiber = fiber.parent
-  while (!parentFiber.dom) {
-    parentFiber = parentFiber.parent
-  }
+  let parentDomFiber = findParentDomFiber(fiber)
   if (fiber.dom) {
     if (fiber.effectTag == 'update') {
       updateProps(fiber.dom, fiber.props, fiber.alternat?.props)
     } else if (fiber.effectTag == 'placement') {
-      parentFiber.dom.append(fiber.dom)
+      parentDomFiber.dom.append(fiber.dom)
     }
   }
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+
+function findParentDomFiber(fiber: any) {
+  let parentFiber = fiber.parent
+  while (!parentFiber.dom) {
+    parentFiber = parentFiber.parent
+  }
+  return parentFiber
+}
+function findNextSiblingFiber(fiber: any) {
+  let nextFiber = fiber
+  while (nextFiber) {
+    if (nextFiber.sibling) return nextFiber.sibling
+    nextFiber = nextFiber.parent
+  }
+}
+function commitDeletion(fiber: any) {
+  if (fiber.dom) {
+    let parentDomFiber = findParentDomFiber(fiber)
+
+    parentDomFiber.dom.removeChild(fiber.dom)
+  } else {
+    commitDeletion(fiber.child)
+  }
 }
 function createDom(fiberNode: any) {
   return (fiberNode.dom =
@@ -83,17 +113,22 @@ function reconcileChildren(fiber: any, children: any[]) {
         alternat: oldFiber,
       }
     } else {
-      newFiber = {
-        type: currentChild.type,
-        props: currentChild.props,
-        parent: fiber,
-        sibling: null,
-        child: null,
-        dom: null,
-        effectTag: 'placement',
+      if (currentChild) {
+        newFiber = {
+          type: currentChild.type,
+          props: currentChild.props,
+          parent: fiber,
+          sibling: null,
+          child: null,
+          dom: null,
+          effectTag: 'placement',
+        }
+      }
+      if (oldFiber) {
+        deletions.push(oldFiber)
       }
     }
-    if (oldFiber?.sibling) {
+    if (oldFiber) {
       oldFiber = oldFiber.sibling
     }
     if (index == 0) {
@@ -101,10 +136,16 @@ function reconcileChildren(fiber: any, children: any[]) {
     } else {
       prevChild.sibling = newFiber
     }
-    return newFiber
+    return newFiber || prevChild
   }, null)
+  //循环删除多余的旧兄弟
+  while (oldFiber) {
+    deletions.push(oldFiber.sibling)
+    oldFiber = oldFiber.sibling
+  }
 }
 function updateFunctionComponent(fiber: any) {
+  workInProgressFuncFiber = fiber
   const newChildren = [fiber.type(fiber.props)]
   reconcileChildren(fiber, newChildren)
 }
@@ -126,11 +167,7 @@ function performanceFiber(fiber: any) {
   if (fiber.child) {
     return fiber.child
   }
-  let nextFiber = fiber
-  while (nextFiber) {
-    if (nextFiber.sibling) return nextFiber.sibling
-    nextFiber = nextFiber.parent
-  }
+  return findNextSiblingFiber(fiber)
 }
 function render(vdom: any, container: Element) {
   workInProgress = {
@@ -142,12 +179,15 @@ function render(vdom: any, container: Element) {
   nextUnitOfFiber = workInProgress
 }
 export function update() {
-  workInProgress = {
-    dom: currentRoot.dom,
-    props: currentRoot.props,
-    alternat: currentRoot,
+  let currentFiber = workInProgressFuncFiber
+  return () => {
+    workInProgress = {
+      ...currentFiber,
+      alternat: currentFiber,
+    }
+    nextUnitOfFiber = workInProgress
+    workInProgressNextSiblingFiber = findNextSiblingFiber(workInProgress)
   }
-  nextUnitOfFiber = workInProgress
 }
 requestIdleCallback(wookloop)
 export default render

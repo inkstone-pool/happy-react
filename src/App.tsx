@@ -1,11 +1,14 @@
 import React from './core/React'
 import { update } from './core/wookloop'
 let count = 100
+let showNum = false
 function Counter() {
+  console.log('render:Counter')
+  const updateFn = update()
   const onClick = () => {
     //主动更新
     count++
-    update()
+    updateFn()
     console.log('click-counterOne')
   }
   return (
@@ -19,19 +22,22 @@ let Counter2Props: any = {
   className: '12312',
   id: 'counter2',
 }
-function Counter2({ num }: { num: number }) {
+function Counter2() {
+  console.log('render:Counter2')
+  const updateFn = update()
   const onClick = () => {
     Counter2Props = {
       className: 'yes',
     }
-    update()
+    showNum = !showNum
+    updateFn()
     console.log('click-counterTwo')
   }
   return (
     <div {...Counter2Props}>
       counter1:
-      {num}
-      <button onClick={onClick}>remove</button>
+      {showNum ? <div>num</div> : <p>不展示num</p>}
+      <button onClick={onClick}>showNum</button>
     </div>
   )
 }
@@ -39,7 +45,7 @@ function CounterContainer() {
   return <Counter></Counter>
 }
 function Counter2Container() {
-  return <Counter2 num={20}></Counter2>
+  return <Counter2></Counter2>
 }
 const App = (
   <div id="test">
