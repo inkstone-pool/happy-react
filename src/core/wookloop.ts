@@ -29,6 +29,7 @@ function commitRoot() {
 }
 function commitWork(fiber: any) {
   if (!fiber) return
+
   let parentDomFiber = findParentDomFiber(fiber)
   if (fiber.dom) {
     if (fiber.effectTag == 'update') {
@@ -70,6 +71,7 @@ function createDom(fiberNode: any) {
       ? document.createTextNode(fiberNode.props.nodeValue)
       : document.createElement(fiberNode.type))
 }
+
 function updateProps(dom: Element, nextProps: any, prevProps: any = {}) {
   Object.entries(prevProps).forEach(([key]) => {
     if (key !== 'children') {
@@ -180,6 +182,7 @@ function render(vdom: any, container: Element) {
 }
 export function update() {
   let currentFiber = workInProgressFuncFiber
+
   return () => {
     workInProgress = {
       ...currentFiber,

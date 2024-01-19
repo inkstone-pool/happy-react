@@ -47,12 +47,25 @@ function CounterContainer() {
 function Counter2Container() {
   return <Counter2></Counter2>
 }
-const App = (
-  <div id="test">
-    <div>happy-react</div>
-    <CounterContainer></CounterContainer>
-    <Counter2Container></Counter2Container>
-  </div>
-)
+let appCount = 100
+function App() {
+  console.log('App')
+  const updateFn = update()
+  const onClick = () => {
+    appCount++
+    updateFn()
+    console.log('click-App')
+  }
+  return (
+    <div id="test">
+      <div>
+        happy-react{appCount}
+        <button onClick={onClick}>+1{appCount}</button>
+      </div>
+      <CounterContainer></CounterContainer>
+      <Counter2Container></Counter2Container>
+    </div>
+  )
+}
 
 export default App
