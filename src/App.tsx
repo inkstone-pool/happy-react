@@ -1,5 +1,5 @@
 import React from './core/React'
-import { update } from './core/wookloop'
+import { update, useState } from './core/wookloop'
 let count = 100
 let showNum = false
 function Counter() {
@@ -41,11 +41,24 @@ function Counter2() {
     </div>
   )
 }
-function CounterContainer() {
-  return <Counter></Counter>
-}
-function Counter2Container() {
-  return <Counter2></Counter2>
+function UseStateDemo() {
+  console.log('usestatedemo')
+  const [num, setNum] = useState(10)
+  // const [title, setTitle] = useState('title')
+  return (
+    <div>
+      {/* <div>{title}</div> */}
+      <div>{num}</div>
+      <button
+        onClick={() => {
+          setNum(10)
+          // setTitle((preString: string) => preString + preString)
+        }}
+      >
+        +1
+      </button>
+    </div>
+  )
 }
 let appCount = 100
 function App() {
@@ -62,8 +75,9 @@ function App() {
         happy-react{appCount}
         <button onClick={onClick}>+1{appCount}</button>
       </div>
-      <CounterContainer></CounterContainer>
-      <Counter2Container></Counter2Container>
+      <Counter></Counter>
+      <Counter2></Counter2>
+      <UseStateDemo></UseStateDemo>
     </div>
   )
 }

@@ -148,6 +148,8 @@ function reconcileChildren(fiber: any, children: any[]) {
 }
 function updateFunctionComponent(fiber: any) {
   workInProgressFuncFiber = fiber
+  fiberHookIndex = 0
+  workInProgressFuncFiber.fiberHooks = []
   const newChildren = [fiber.type(fiber.props)]
   reconcileChildren(fiber, newChildren)
 }
@@ -191,6 +193,34 @@ export function update() {
     nextUnitOfFiber = workInProgress
     workInProgressNextSiblingFiber = findNextSiblingFiber(workInProgress)
   }
+}
+
+let fiberHookIndex = 0
+export function useState(initial: any) {
+  let currentFiber = workInProgressFuncFiber
+  let oldFiberHook = currentFiber.alternat?.fiberHooks[fiberHookIndex]
+
+  const stateHook = {
+    state: oldFiberHook ? oldFiberHook.state : initial,
+    queue: oldFiberHook ? oldFiberHook.queue : [],
+  }
+  stateHook.queue.forEach((action: (state: any) => void) => {
+    stateHook.state = action(stateHook.state)
+  })
+  currentFiber.fiberHooks.push(stateHook)
+  fiberHookIndex++
+  function dispath(action: (value?: any) => void) {
+    const ergerState = typeof action == 'function' ? action() : action
+    if (ergerState == stateHook.state) return
+    stateHook.queue.push(typeof action == 'function' ? action : () => action)
+    workInProgress = {
+      ...currentFiber,
+      alternat: currentFiber,
+    }
+    nextUnitOfFiber = workInProgress
+    workInProgressNextSiblingFiber = findNextSiblingFiber(workInProgress)
+  }
+  return [stateHook.state, dispath]
 }
 requestIdleCallback(wookloop)
 export default render
