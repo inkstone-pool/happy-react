@@ -24,7 +24,7 @@ function commitRoot() {
   })
   deletions = []
   commitWork(workInProgress.child)
-
+  commitEffectHooks(workInProgress)
   workInProgress = null
 }
 function commitWork(fiber: any) {
@@ -33,7 +33,7 @@ function commitWork(fiber: any) {
   let parentDomFiber = findParentDomFiber(fiber)
   if (fiber.dom) {
     if (fiber.effectTag == 'update') {
-      updateProps(fiber.dom, fiber.props, fiber.alternat?.props)
+      updateProps(fiber.dom, fiber.props, fiber.alternate?.props)
     } else if (fiber.effectTag == 'placement') {
       parentDomFiber.dom.append(fiber.dom)
     }
@@ -41,7 +41,42 @@ function commitWork(fiber: any) {
   commitWork(fiber.child)
   commitWork(fiber.sibling)
 }
-
+function commitEffectHooks(fiber: any) {
+  function runEffect(fiber: any) {
+    if (!fiber) return
+    if (!fiber.alternate) {
+      fiber.effectHooks?.forEach((effectHook: any) => {
+        fiber.cleanup = effectHook.effect()
+      })
+    } else {
+      fiber.effectHooks?.forEach((newEffectHook: any, index: number) => {
+        if (newEffectHook.deps.length > 0) {
+          const oldEffectHook = fiber.alternate?.effectHooks[index]
+          const needUpdate = oldEffectHook?.deps.some(
+            (oldDep: any, index: number) => {
+              return oldDep !== newEffectHook.deps[index]
+            }
+          )
+          needUpdate && (newEffectHook.cleanup = newEffectHook.effect())
+        }
+      })
+    }
+    runEffect(fiber.child)
+    runEffect(fiber.sibling)
+  }
+  function runCleanup(fiber: any) {
+    if (!fiber) return
+    fiber.alternate?.effectHooks?.forEach((oldEffectHook: any) => {
+      if (oldEffectHook.deps.length > 0) {
+        oldEffectHook.cleanup && oldEffectHook.cleanup()
+      }
+    })
+    runCleanup(fiber.child)
+    runCleanup(fiber.sibling)
+  }
+  runCleanup(fiber)
+  runEffect(fiber)
+}
 function findParentDomFiber(fiber: any) {
   let parentFiber = fiber.parent
   while (!parentFiber.dom) {
@@ -98,7 +133,7 @@ function updateProps(dom: Element, nextProps: any, prevProps: any = {}) {
 }
 function reconcileChildren(fiber: any, children: any[]) {
   let newChildren = Array.isArray(children) ? children : []
-  let oldFiber = fiber.alternat?.child
+  let oldFiber = fiber.alternate?.child
 
   newChildren.reduce((prevChild: any, currentChild: any, index: number) => {
     let newFiber = null
@@ -112,7 +147,7 @@ function reconcileChildren(fiber: any, children: any[]) {
         child: null,
         effectTag: 'update',
         dom: oldFiber.dom,
-        alternat: oldFiber,
+        alternate: oldFiber,
       }
     } else {
       if (currentChild) {
@@ -149,7 +184,8 @@ function reconcileChildren(fiber: any, children: any[]) {
 function updateFunctionComponent(fiber: any) {
   workInProgressFuncFiber = fiber
   fiberHookIndex = 0
-  workInProgressFuncFiber.fiberHooks = []
+  effectHooks = []
+  stateHooks = []
   const newChildren = [fiber.type(fiber.props)]
   reconcileChildren(fiber, newChildren)
 }
@@ -182,24 +218,12 @@ function render(vdom: any, container: Element) {
   }
   nextUnitOfFiber = workInProgress
 }
-export function update() {
-  let currentFiber = workInProgressFuncFiber
-
-  return () => {
-    workInProgress = {
-      ...currentFiber,
-      alternat: currentFiber,
-    }
-    nextUnitOfFiber = workInProgress
-    workInProgressNextSiblingFiber = findNextSiblingFiber(workInProgress)
-  }
-}
 
 let fiberHookIndex = 0
+let stateHooks: { state: any; queue: any }[] = []
 export function useState(initial: any) {
   let currentFiber = workInProgressFuncFiber
-  let oldFiberHook = currentFiber.alternat?.fiberHooks[fiberHookIndex]
-
+  let oldFiberHook = currentFiber.alternate?.stateHooks[fiberHookIndex]
   const stateHook = {
     state: oldFiberHook ? oldFiberHook.state : initial,
     queue: oldFiberHook ? oldFiberHook.queue : [],
@@ -207,20 +231,29 @@ export function useState(initial: any) {
   stateHook.queue.forEach((action: (state: any) => void) => {
     stateHook.state = action(stateHook.state)
   })
-  currentFiber.fiberHooks.push(stateHook)
+  stateHook.queue = []
+  stateHooks.push(stateHook)
+  currentFiber.stateHooks = stateHooks
   fiberHookIndex++
   function dispath(action: (value?: any) => void) {
     const ergerState = typeof action == 'function' ? action() : action
     if (ergerState == stateHook.state) return
     stateHook.queue.push(typeof action == 'function' ? action : () => action)
-    workInProgress = {
-      ...currentFiber,
-      alternat: currentFiber,
-    }
+    workInProgress = { ...currentFiber }
+    workInProgress.alternate = currentFiber
     nextUnitOfFiber = workInProgress
     workInProgressNextSiblingFiber = findNextSiblingFiber(workInProgress)
   }
   return [stateHook.state, dispath]
+}
+let effectHooks: { effect: () => void; deps: any[] }[] = []
+export function useEffect(effect: () => void, deps: any[]) {
+  const effectHook = {
+    effect: effect,
+    deps,
+  }
+  effectHooks.push(effectHook)
+  workInProgressFuncFiber.effectHooks = effectHooks
 }
 requestIdleCallback(wookloop)
 export default render
