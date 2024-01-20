@@ -239,8 +239,8 @@ export function useState(initial: any) {
     const ergerState = typeof action == 'function' ? action() : action
     if (ergerState == stateHook.state) return
     stateHook.queue.push(typeof action == 'function' ? action : () => action)
-    workInProgress = { ...currentFiber }
-    workInProgress.alternate = currentFiber
+    workInProgress = currentFiber
+    workInProgress.alternate = workInProgress
     nextUnitOfFiber = workInProgress
     workInProgressNextSiblingFiber = findNextSiblingFiber(workInProgress)
   }
